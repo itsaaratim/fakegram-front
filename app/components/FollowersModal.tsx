@@ -12,13 +12,20 @@ interface FollowersModalProps {
 }
 
 export default function FollowersModal({ isOpen, onClose, initialTab = 'followers' }: FollowersModalProps) {
-  const { currentUser, users, followUser, unfollowUser, removeFollower } = useFakegram();
+  const { currentUser, users, followUser, unfollowUser, removeFollower, fetchUsers } = useFakegram();
   const [activeTab, setActiveTab] = useState<'followers' | 'following'>(
     initialTab === 'followers' ? 'followers' : 'following'
   );
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+
+  // Sync latest users from backend when modal is opened to show new connections immediately
+  useEffect(() => {
+    if (isOpen) {
+      fetchUsers();
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen || !currentUser) return;

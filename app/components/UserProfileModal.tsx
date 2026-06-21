@@ -12,7 +12,7 @@ interface UserProfileModalProps {
 }
 
 export default function UserProfileModal({ userId, onClose, onSelectStory }: UserProfileModalProps) {
-  const { currentUser, users, feedStories, followUser, unfollowUser } = useFakegram();
+  const { currentUser, users, feedStories, followUser, unfollowUser, openChat } = useFakegram();
 
   // Load the target user details
   const targetUser = users.find((u) => u.id === userId);
@@ -155,24 +155,36 @@ export default function UserProfileModal({ userId, onClose, onSelectStory }: Use
               </div>
             </div>
 
-            {/* Follow / Unfollow CTA */}
+            {/* Follow / Unfollow & Message CTA */}
             {currentUser.id !== targetUser.id && (
-              <button
-                onClick={() => {
-                  if (isFollowing) {
-                    unfollowUser(targetUser.id);
-                  } else {
-                    followUser(targetUser.id);
-                  }
-                }}
-                className={`cursor-pointer mt-2 w-full max-w-[200px] rounded-xl py-2 text-xs font-semibold transition-all ${
-                  isFollowing
-                    ? 'border border-zinc-200 bg-zinc-50 text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900'
-                    : 'bg-brand-blue text-white hover:bg-brand-blue-hover shadow-sm'
-                }`}
-              >
-                {isFollowing ? 'Unfollow' : 'Follow'}
-              </button>
+              <div className="flex gap-2.5 mt-3 w-full max-w-[240px]">
+                <button
+                  onClick={() => {
+                    if (isFollowing) {
+                      unfollowUser(targetUser.id);
+                    } else {
+                      followUser(targetUser.id);
+                    }
+                  }}
+                  className={`flex-1 cursor-pointer rounded-xl py-2.5 text-xs font-semibold transition-all ${
+                    isFollowing
+                      ? 'border border-zinc-200 bg-zinc-50 text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900'
+                      : 'bg-brand-blue text-white hover:bg-brand-blue-hover shadow-sm'
+                  }`}
+                >
+                  {isFollowing ? 'Unfollow' : 'Follow'}
+                </button>
+
+                <button
+                  onClick={() => {
+                    onClose();
+                    openChat(targetUser.id);
+                  }}
+                  className="flex-1 cursor-pointer flex items-center justify-center gap-1.5 rounded-xl border border-zinc-200 bg-zinc-50 py-2.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900 transition-all"
+                >
+                  Message
+                </button>
+              </div>
             )}
 
 

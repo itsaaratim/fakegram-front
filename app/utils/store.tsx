@@ -1,12 +1,13 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { User, Story } from "./mockData";
+import { User, Story, StoryComment, Message } from "./mockData";
 import { API_URL } from "./config";
 
 interface FakegramContextType {
   currentUser: User | null;
   users: User[];
+  fetchUsers: () => Promise<void>;
   stories: Story[];
   feedStories: Story[];
   isLoading: boolean;
@@ -47,6 +48,17 @@ interface FakegramContextType {
   followUser: (userId: string) => Promise<void>;
   unfollowUser: (userId: string) => Promise<void>;
   removeFollower: (userId: string) => Promise<void>;
+  addComment: (storyId: string, content: string) => Promise<void>;
+  deleteComment: (storyId: string, commentId: string) => Promise<void>;
+
+  // Chat/DMs Support
+  messages: Message[];
+  fetchMessages: () => Promise<void>;
+  sendMessage: (receiverId: string, content: string) => Promise<boolean>;
+  isChatOpen: boolean;
+  chatActiveUserId: string | null;
+  openChat: (userId: string | null) => void;
+  closeChat: () => void;
 }
 
 const FakegramContext = createContext<FakegramContextType | undefined>(
@@ -104,6 +116,7 @@ export const FakegramProvider: React.FC<{ children: React.ReactNode }> = ({
     setViewingUserProfileId(userId);
     if (userId !== null) {
       setViewingStoryUserId(null); // Close story viewer when viewing profile
+      setIsChatOpen(false); // Close chat when viewing profile
     }
   };
 
@@ -111,7 +124,49 @@ export const FakegramProvider: React.FC<{ children: React.ReactNode }> = ({
     setViewingStoryUserId(userId);
     if (userId !== null) {
       setViewingUserProfileId(null); // Close profile view when starting story
+      setIsChatOpen(false); // Close chat when starting story
     }
+  };
+
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [chatActiveUserId, setChatActiveUserId] = useState<string | null>(null);
+
+  const openChat = (userId: string | null) => {
+    setChatActiveUserId(userId);
+    setIsChatOpen(true);
+    setViewingUserProfileId(null);
+    setViewingStoryUserId(null);
+  };
+
+  const closeChat = () => {
+    setIsChatOpen(false);
+    setChatActiveUserId(null);
+  };
+
+  const fetchUsers = async () => {
+    try {
+      const usersRes = await fetch(`${API_URL}/api/users`);
+      if (usersRes.ok) {
+        const loadedUsers = await usersRes.json();
+        setUsers(loadedUsers);
+        
+        // Also sync currentUser details if logged in
+        const storedCurrentUser = localStorage.getItem("fakegram_current_user");
+        if (storedCurrentUser) {
+          const parsedUser = JSON.parse(storedCurrentUser);
+          const syncedUser = loadedUsers.find((u: any) => u.id === parsedUser.id);
+          if (syncedUser) {
+            setCurrentUser(syncedUser);
+            localStorage.setItem("fakegram_current_user", JSON.stringify(syncedUser));
+          }
+        }
+        return loadedUsers;
+      }
+    } catch (err) {
+      console.error("Error fetching users:", err);
+    }
+    return [];
   };
 
   // Initialize data from backend API
@@ -120,18 +175,22 @@ export const FakegramProvider: React.FC<{ children: React.ReactNode }> = ({
       try {
         setIsLoading(true);
         
+        // Clear legacy mock stories/posts from localStorage to keep storage clean
+        if (typeof window !== "undefined" && window.localStorage) {
+          localStorage.removeItem("fakegram_stories");
+          localStorage.removeItem("stories");
+          localStorage.removeItem("fakegram_posts");
+          localStorage.removeItem("posts");
+        }
+        
         // Sync token first
         const storedToken = localStorage.getItem("fakegram_token");
         if (storedToken) {
           setToken(storedToken);
         }
 
-        // Fetch users
-        const usersRes = await fetch(`${API_URL}/api/users`);
-        if (usersRes.ok) {
-          const loadedUsers = await usersRes.json();
-          setUsers(loadedUsers);
-        }
+        // Fetch users and sync current user details
+        const loadedUsers = await fetchUsers();
 
         // Fetch stories
         const storiesRes = await fetch(`${API_URL}/api/stories`);
@@ -140,21 +199,12 @@ export const FakegramProvider: React.FC<{ children: React.ReactNode }> = ({
           setStories(loadedStories);
         }
 
-        // Sync logged in user if stored
+        // If fetchUsers failed to sync (e.g. server was slow), load cached session
         const storedCurrentUser = localStorage.getItem("fakegram_current_user");
-        if (storedCurrentUser) {
+        if (storedCurrentUser && !currentUser) {
           const parsedUser = JSON.parse(storedCurrentUser);
-          
-          // Re-fetch latest users to keep in-memory context correct
-          const userRes = await fetch(`${API_URL}/api/users`);
-          if (userRes.ok) {
-            const allUsers = await userRes.json();
-            const syncedUser = allUsers.find((u: any) => u.id === parsedUser.id) || parsedUser;
-            setCurrentUser(syncedUser);
-            localStorage.setItem("fakegram_current_user", JSON.stringify(syncedUser));
-          } else {
-            setCurrentUser(parsedUser);
-          }
+          const syncedUser = loadedUsers.find((u: any) => u.id === parsedUser.id) || parsedUser;
+          setCurrentUser(syncedUser);
         }
       } catch (err) {
         console.error('Failed to load backend data:', err);
@@ -483,6 +533,115 @@ export const FakegramProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
+  const addComment = async (storyId: string, content: string): Promise<void> => {
+    if (!currentUser) return;
+    try {
+      const activeToken = token;
+      const res = await fetch(`${API_URL}/api/stories/${storyId}/comments`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${activeToken}`,
+        },
+        body: JSON.stringify({ content }),
+      });
+
+      if (res.ok) {
+        const updatedComments = await res.json();
+        setStories((prev) =>
+          prev.map((s) => (s.id === storyId ? { ...s, comments: updatedComments } : s)),
+        );
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const deleteComment = async (storyId: string, commentId: string): Promise<void> => {
+    if (!currentUser) return;
+    try {
+      const activeToken = token;
+      const res = await fetch(`${API_URL}/api/stories/${storyId}/comments/${commentId}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${activeToken}`,
+        },
+      });
+
+      if (res.ok) {
+        setStories((prev) =>
+          prev.map((s) => {
+            if (s.id === storyId) {
+              return {
+                ...s,
+                comments: (s.comments || []).filter((c) => c.id !== commentId),
+              };
+            }
+            return s;
+          }),
+        );
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchMessages = async () => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_URL}/api/messages`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setMessages(data);
+      }
+    } catch (err) {
+      console.error("Error fetching messages:", err);
+    }
+  };
+
+  const sendMessage = async (receiverId: string, content: string): Promise<boolean> => {
+    if (!token || !content.trim()) return false;
+    try {
+      const res = await fetch(`${API_URL}/api/messages`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ receiverId, content: content.trim() }),
+      });
+      if (res.ok) {
+        const newMessage = await res.json();
+        setMessages((prev) => [...prev, newMessage]);
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error("Error sending message:", err);
+      return false;
+    }
+  };
+
+  // Periodic polling for DMs when logged in
+  useEffect(() => {
+    if (!token) {
+      setMessages([]);
+      return;
+    }
+    fetchMessages(); // fetch immediately
+
+    const pollInterval = setInterval(() => {
+      fetchMessages();
+    }, 4000); // check every 4 seconds
+
+    return () => clearInterval(pollInterval);
+  }, [token]);
+
   const getFeedStories = (): Story[] => {
     if (!currentUser) return [];
 
@@ -521,6 +680,16 @@ export const FakegramProvider: React.FC<{ children: React.ReactNode }> = ({
         followUser,
         unfollowUser,
         removeFollower,
+        addComment,
+        deleteComment,
+        messages,
+        fetchMessages,
+        sendMessage,
+        isChatOpen,
+        chatActiveUserId,
+        openChat,
+        closeChat,
+        fetchUsers,
       }}
     >
       {children}

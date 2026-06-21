@@ -13,6 +13,17 @@ export interface User {
   birthday?: string;
 }
 
+export interface StoryComment {
+  id: string;
+  storyId: string;
+  userId: string;
+  username: string;
+  userAvatar: string;
+  userName: string;
+  content: string;
+  createdAt: string;
+}
+
 export interface Story {
   id: string;
   userId: string;
@@ -24,6 +35,7 @@ export interface Story {
   background: string;
   createdAt: string;
   likes?: string[];
+  comments?: StoryComment[];
 }
 
 export const STORY_COLORS = [
@@ -35,3 +47,12 @@ export const STORY_COLORS = [
   { id: "rose", name: "Rose", hex: "#fff1f2", text: "text-rose-900" },
   { id: "dark-minimal", name: "Dark", hex: "#18181b", text: "text-zinc-100" },
 ];
+
+export interface Message {
+  id: string;
+  senderId: string;
+  receiverId: string;
+  content: string;
+  createdAt: string;
+  isRead: boolean;
+}

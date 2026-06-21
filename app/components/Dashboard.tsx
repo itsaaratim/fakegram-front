@@ -10,6 +10,7 @@ import FollowersModal from "./FollowersModal";
 import UserProfileModal from "./UserProfileModal";
 import UserProfileTrigger from "./UserProfileTrigger";
 import ProfileCard from "./ProfileCard";
+import ChatModal from "./ChatModal";
 
 export default function Dashboard() {
   const {
@@ -461,6 +462,9 @@ export default function Dashboard() {
           }}
         />
       )}
+
+      {/* Chat Modal */}
+      <ChatModal />
     </div>
   );
 }

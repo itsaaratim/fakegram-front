@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useFakegram } from "../utils/store";
-import { Plus, Edit, LogOut } from "./Icons";
+import { Plus, Edit, LogOut, MessageCircle } from "./Icons";
 
 interface ProfileCardProps {
   setIsEditProfileOpen: (open: boolean) => void;
@@ -15,7 +15,7 @@ export default function ProfileCard({
   setIsAddStoryOpen,
   openConnections,
 }: ProfileCardProps) {
-  const { currentUser, logout } = useFakegram();
+  const { currentUser, logout, openChat } = useFakegram();
 
   if (!currentUser) return null;
 
@@ -123,13 +123,21 @@ export default function ProfileCard({
             Share Story
           </button>
 
-          <div className="flex gap-2.5 w-full">
+          <div className="flex gap-2 w-full">
             <button
               onClick={() => setIsEditProfileOpen(true)}
               className="flex-1 cursor-pointer flex items-center justify-center gap-1.5 rounded-xl border border-zinc-250 bg-zinc-50 py-2.5 text-xs font-semibold text-zinc-750 hover:bg-zinc-100 hover:text-zinc-900 transition-all"
             >
               <Edit size={12} />
               Edit Profile
+            </button>
+
+            <button
+              onClick={() => openChat(null)}
+              className="cursor-pointer flex items-center justify-center rounded-xl border border-zinc-200 bg-zinc-50 p-2.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 transition-all animate-none"
+              title="Direct Messages"
+            >
+              <MessageCircle size={16} />
             </button>
 
             <button

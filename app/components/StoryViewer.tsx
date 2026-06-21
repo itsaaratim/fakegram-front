@@ -8,8 +8,8 @@ import React, {
   useMemo,
 } from "react";
 import { useFakegram } from "../utils/store";
-import { Story, User } from "../utils/mockData";
-import { X, Trash, ChevronLeft, ChevronRight, Heart } from "./Icons";
+import { Story, User, StoryComment } from "../utils/mockData";
+import { X, Trash, ChevronLeft, ChevronRight, Heart, MessageCircle } from "./Icons";
 import UserProfileTrigger from "./UserProfileTrigger";
 import Image from "next/image";
 
@@ -22,7 +22,7 @@ export default function StoryViewer({
   initialUserId,
   onClose,
 }: StoryViewerProps) {
-  const { currentUser, feedStories, deleteStory, likeStory, users } =
+  const { currentUser, feedStories, deleteStory, likeStory, users, addComment, deleteComment } =
     useFakegram();
 
   const storiesByUser: { [userId: string]: Story[] } = {};
@@ -50,6 +50,8 @@ export default function StoryViewer({
   const [progress, setProgress] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [isLikesListOpen, setIsLikesListOpen] = useState(false);
+  const [isCommentsOpen, setIsCommentsOpen] = useState(false);
+  const [commentContent, setCommentContent] = useState("");
   const [currentTime, setCurrentTime] = useState(() => Date.now());
 
   useEffect(() => {
@@ -77,17 +79,20 @@ export default function StoryViewer({
     if (storyIndex < userStories.length - 1) {
       // Go to next story of same user
       setIsLikesListOpen(false);
+      setIsCommentsOpen(false);
       setStoryIndex(storyIndex + 1);
       setProgress(0);
     } else if (userIndex < orderedUserIds.length - 1) {
       // Go to first story of next user
       setIsLikesListOpen(false);
+      setIsCommentsOpen(false);
       setUserIndex(userIndex + 1);
       setStoryIndex(0);
       setProgress(0);
     } else {
       // No more stories, close
       setIsLikesListOpen(false);
+      setIsCommentsOpen(false);
       onClose();
     }
   }, [userStories, storyIndex, userIndex, orderedUserIds.length, onClose]);
@@ -97,12 +102,14 @@ export default function StoryViewer({
     if (storyIndex > 0) {
       // Go to previous story of same user
       setIsLikesListOpen(false);
+      setIsCommentsOpen(false);
       setStoryIndex(storyIndex - 1);
       setProgress(0);
     } else if (userIndex > 0) {
       // Go to last story of previous user
       const prevUserStories = storiesByUser[orderedUserIds[userIndex - 1]];
       setIsLikesListOpen(false);
+      setIsCommentsOpen(false);
       setUserIndex(userIndex - 1);
       setStoryIndex(prevUserStories.length - 1);
       setProgress(0);
@@ -116,6 +123,7 @@ export default function StoryViewer({
   const handleDelete = () => {
     if (!currentStory) return;
     setIsLikesListOpen(false);
+    setIsCommentsOpen(false);
     deleteStory(currentStory.id);
 
     // Adjust indices if this was the last story or user
@@ -138,7 +146,7 @@ export default function StoryViewer({
   };
 
   useEffect(() => {
-    if (isPaused || isLikesListOpen || !currentStory) {
+    if (isPaused || isLikesListOpen || isCommentsOpen || !currentStory) {
       if (progressInterval.current) clearInterval(progressInterval.current);
       return;
     }
@@ -201,6 +209,18 @@ export default function StoryViewer({
         .map((id) => users.find((u) => u.id === id))
         .filter((u): u is User => !!u)
     : [];
+
+  const handleAddComment = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!commentContent.trim() || !currentStory) return;
+    await addComment(currentStory.id, commentContent.trim());
+    setCommentContent("");
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    if (!currentStory) return;
+    await deleteComment(currentStory.id, commentId);
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 p-0 sm:p-4 backdrop-blur-md">
@@ -351,46 +371,72 @@ export default function StoryViewer({
 
         {/* Bottom Reaction Bar */}
         <div className="relative z-20 flex items-center justify-between p-4 bg-zinc-950 border-t border-zinc-900">
-          {/* Likes List/Count trigger for owner */}
-          <div className="flex-1 flex items-center gap-2">
-            {currentUser && currentUser.id === currentStory.userId ? (
-              currentStory.likes && currentStory.likes.length > 0 ? (
-                <button
-                  onClick={() => setIsLikesListOpen(true)}
-                  className="cursor-pointer flex items-center gap-1.5 rounded-full bg-zinc-900/60 hover:bg-zinc-900 px-3 py-1.5 text-xs text-white border border-zinc-800 transition-colors"
-                >
-                  <span className="text-rose-500">❤️</span>
-                  <span className="font-semibold">
-                    {currentStory.likes.length}{" "}
-                    {currentStory.likes.length === 1 ? "like" : "likes"}
-                  </span>
-                </button>
-              ) : (
-                <span className="text-[10px] text-zinc-400 font-medium">
-                  No likes yet
+          {/* Likes & Comments Info Triggers */}
+          <div className="flex-1 flex items-center gap-2 flex-wrap">
+            {/* Likes trigger */}
+            {currentStory.likes && currentStory.likes.length > 0 ? (
+              <button
+                onClick={() => {
+                  setIsLikesListOpen(true);
+                  setIsCommentsOpen(false);
+                }}
+                className="cursor-pointer flex items-center gap-1.5 rounded-full bg-zinc-900/60 hover:bg-zinc-900 px-3 py-1.5 text-xs text-white border border-zinc-800 transition-colors"
+              >
+                <span className="text-rose-500">❤️</span>
+                <span className="font-semibold">
+                  {currentStory.likes.length}
                 </span>
-              )
+              </button>
             ) : (
-              <span className="text-[10px] text-zinc-400 font-medium">
-                {currentStory.likes && currentStory.likes.length > 0
-                  ? `${currentStory.likes.length} ${currentStory.likes.length === 1 ? "like" : "likes"}`
-                  : "Be the first to like"}
+              <span className="text-[10px] text-zinc-500 font-medium">
+                0 likes
               </span>
             )}
+
+            {/* Comments trigger */}
+            <button
+              onClick={() => {
+                setIsCommentsOpen(true);
+                setIsLikesListOpen(false);
+              }}
+              className="cursor-pointer flex items-center gap-1.5 rounded-full bg-zinc-900/60 hover:bg-zinc-900 px-3 py-1.5 text-xs text-white border border-zinc-800 transition-colors"
+            >
+              <span className="text-blue-400">💬</span>
+              <span className="font-semibold">
+                {currentStory.comments ? currentStory.comments.length : 0}
+              </span>
+            </button>
           </div>
 
-          {/* Like toggle button */}
-          <button
-            onClick={() => likeStory(currentStory.id)}
-            className="cursor-pointer flex items-center justify-center rounded-full bg-zinc-900/60 p-2.5 text-zinc-400 hover:text-white border border-zinc-800 hover:bg-zinc-800 transition-colors"
-            title={isLiked ? "Unlike" : "Like"}
-          >
-            {isLiked ? (
-              <Heart size={18} className="fill-rose-500 stroke-rose-500" />
-            ) : (
-              <Heart size={18} className="stroke-zinc-300" />
-            )}
-          </button>
+          {/* Like & Comment Action Buttons */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => likeStory(currentStory.id)}
+              className="cursor-pointer flex items-center justify-center rounded-full bg-zinc-900/60 p-2.5 text-zinc-400 hover:text-white border border-zinc-800 hover:bg-zinc-800 transition-colors"
+              title={isLiked ? "Unlike" : "Like"}
+            >
+              {isLiked ? (
+                <Heart size={18} className="fill-rose-500 stroke-rose-500" />
+              ) : (
+                <Heart size={18} className="stroke-zinc-300" />
+              )}
+            </button>
+
+            <button
+              onClick={() => {
+                setIsCommentsOpen(!isCommentsOpen);
+                setIsLikesListOpen(false);
+              }}
+              className={`cursor-pointer flex items-center justify-center rounded-full p-2.5 border transition-colors ${
+                isCommentsOpen
+                  ? "bg-white text-zinc-950 border-white"
+                  : "bg-zinc-900/60 text-zinc-400 border-zinc-800 hover:text-white hover:bg-zinc-800"
+              }`}
+              title="Comment"
+            >
+              <MessageCircle size={18} />
+            </button>
+          </div>
         </div>
 
         {/* Likes Drawer Panel */}
@@ -432,6 +478,120 @@ export default function StoryViewer({
                 </UserProfileTrigger>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* Comments Drawer Panel */}
+        {isCommentsOpen && (
+          <div className="absolute bottom-0 inset-x-0 bg-zinc-900 border-t border-zinc-800 rounded-t-3xl z-30 p-4 max-h-[70%] flex flex-col shadow-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-800 mb-3">
+              <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                <span>Comments</span>
+                {currentStory.comments && currentStory.comments.length > 0 && (
+                  <span className="bg-zinc-800 text-zinc-400 text-xs px-2 py-0.5 rounded-full">
+                    {currentStory.comments.length}
+                  </span>
+                )}
+              </h4>
+              <button
+                onClick={() => setIsCommentsOpen(false)}
+                className="cursor-pointer text-xs text-zinc-400 hover:text-white px-2.5 py-1 bg-zinc-800 rounded-lg transition-colors"
+              >
+                Close
+              </button>
+            </div>
+
+            {/* Comments List */}
+            <div className="flex-1 overflow-y-auto space-y-3 pr-1 mb-3 min-h-[120px]">
+              {!currentStory.comments || currentStory.comments.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-6 text-center">
+                  <span className="text-2xl mb-1">💬</span>
+                  <p className="text-xs text-zinc-400 font-medium">No comments yet</p>
+                  <p className="text-[10px] text-zinc-500">Be the first to share your thoughts!</p>
+                </div>
+              ) : (
+                currentStory.comments.map((c) => (
+                  <div
+                    key={c.id}
+                    className="flex items-start justify-between gap-3 p-2 rounded-xl hover:bg-zinc-850/50 transition-colors"
+                  >
+                    <div className="flex items-start gap-2.5 flex-1 min-w-0">
+                      <UserProfileTrigger
+                        userId={c.userId}
+                        className="flex-shrink-0"
+                      >
+                        <Image
+                          src={c.userAvatar}
+                          alt={c.userName}
+                          width={28}
+                          height={28}
+                          className="h-7 w-7 rounded-full object-cover border border-zinc-800"
+                        />
+                      </UserProfileTrigger>
+                      <div className="flex flex-col text-left min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <UserProfileTrigger
+                            userId={c.userId}
+                            className="text-xs font-bold text-white hover:underline truncate"
+                          >
+                            {c.userName}
+                          </UserProfileTrigger>
+                          <span className="text-[10px] text-zinc-400">
+                            @{c.username}
+                          </span>
+                          <span className="text-[9px] text-zinc-500">
+                            • {getRelativeTime(c.createdAt)}
+                          </span>
+                        </div>
+                        <p className="text-xs text-zinc-300 mt-1 whitespace-pre-wrap break-words leading-relaxed">
+                          {c.content}
+                        </p>
+                      </div>
+                    </div>
+
+                    {(currentUser?.id === c.userId || currentUser?.id === currentStory.userId) && (
+                      <button
+                        onClick={() => handleDeleteComment(c.id)}
+                        className="cursor-pointer text-zinc-500 hover:text-rose-400 p-1 rounded-lg hover:bg-zinc-800 transition-colors flex-shrink-0"
+                        title="Delete comment"
+                      >
+                        <Trash size={14} />
+                      </button>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Comment Input Box */}
+            <form
+              onSubmit={handleAddComment}
+              className="flex items-center gap-2 border-t border-zinc-800 pt-3 bg-zinc-900"
+            >
+              {currentUser && (
+                <Image
+                  src={currentUser.avatar}
+                  alt={currentUser.name}
+                  width={24}
+                  height={24}
+                  className="h-6 w-6 rounded-full object-cover border border-zinc-800 flex-shrink-0 hidden xs:block"
+                />
+              )}
+              <input
+                type="text"
+                placeholder="Add a comment..."
+                value={commentContent}
+                onChange={(e) => setCommentContent(e.target.value)}
+                className="flex-1 bg-zinc-950 text-white placeholder-zinc-500 text-xs px-3 py-2 rounded-xl border border-zinc-800 focus:outline-none focus:border-zinc-700 transition-colors"
+              />
+              <button
+                type="submit"
+                disabled={!commentContent.trim()}
+                className="cursor-pointer text-xs font-bold text-white bg-zinc-800 hover:bg-zinc-750 px-3.5 py-2 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Post
+              </button>
+            </form>
           </div>
         )}
 
