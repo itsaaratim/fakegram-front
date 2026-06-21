@@ -9,9 +9,15 @@ import React, {
 } from "react";
 import { useFakegram } from "../utils/store";
 import { Story, User, StoryComment } from "../utils/mockData";
-import { X, Trash, ChevronLeft, ChevronRight, Heart, MessageCircle } from "./Icons";
+import {
+  X,
+  Trash,
+  ChevronLeft,
+  ChevronRight,
+  Heart,
+  MessageCircle,
+} from "./Icons";
 import UserProfileTrigger from "./UserProfileTrigger";
-import Image from "next/image";
 
 interface StoryViewerProps {
   initialUserId: string; // The user whose story was clicked
@@ -22,8 +28,15 @@ export default function StoryViewer({
   initialUserId,
   onClose,
 }: StoryViewerProps) {
-  const { currentUser, feedStories, deleteStory, likeStory, users, addComment, deleteComment } =
-    useFakegram();
+  const {
+    currentUser,
+    feedStories,
+    deleteStory,
+    likeStory,
+    users,
+    addComment,
+    deleteComment,
+  } = useFakegram();
 
   const storiesByUser: { [userId: string]: Story[] } = {};
   const activeStories = [...feedStories].sort(
@@ -459,11 +472,9 @@ export default function StoryViewer({
                   className="flex items-center justify-between p-2 rounded-xl hover:bg-zinc-800 transition-colors"
                 >
                   <div className="flex items-center gap-3">
-                    <Image
+                    <img
                       src={u.avatar}
                       alt={u.name}
-                      width={32}
-                      height={32}
                       className="h-8 w-8 rounded-full object-cover border border-zinc-800"
                     />
                     <div className="flex flex-col text-left">
@@ -506,8 +517,12 @@ export default function StoryViewer({
               {!currentStory.comments || currentStory.comments.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-6 text-center">
                   <span className="text-2xl mb-1">💬</span>
-                  <p className="text-xs text-zinc-400 font-medium">No comments yet</p>
-                  <p className="text-[10px] text-zinc-500">Be the first to share your thoughts!</p>
+                  <p className="text-xs text-zinc-400 font-medium">
+                    No comments yet
+                  </p>
+                  <p className="text-[10px] text-zinc-500">
+                    Be the first to share your thoughts!
+                  </p>
                 </div>
               ) : (
                 currentStory.comments.map((c) => (
@@ -520,11 +535,9 @@ export default function StoryViewer({
                         userId={c.userId}
                         className="flex-shrink-0"
                       >
-                        <Image
+                        <img
                           src={c.userAvatar}
                           alt={c.userName}
-                          width={28}
-                          height={28}
                           className="h-7 w-7 rounded-full object-cover border border-zinc-800"
                         />
                       </UserProfileTrigger>
@@ -549,7 +562,8 @@ export default function StoryViewer({
                       </div>
                     </div>
 
-                    {(currentUser?.id === c.userId || currentUser?.id === currentStory.userId) && (
+                    {(currentUser?.id === c.userId ||
+                      currentUser?.id === currentStory.userId) && (
                       <button
                         onClick={() => handleDeleteComment(c.id)}
                         className="cursor-pointer text-zinc-500 hover:text-rose-400 p-1 rounded-lg hover:bg-zinc-800 transition-colors flex-shrink-0"
@@ -569,11 +583,9 @@ export default function StoryViewer({
               className="flex items-center gap-2 border-t border-zinc-800 pt-3 bg-zinc-900"
             >
               {currentUser && (
-                <Image
+                <img
                   src={currentUser.avatar}
                   alt={currentUser.name}
-                  width={24}
-                  height={24}
                   className="h-6 w-6 rounded-full object-cover border border-zinc-800 flex-shrink-0 hidden xs:block"
                 />
               )}
